@@ -1,4 +1,7 @@
 # Change Log
+## v0.5.0
+- [scm] added Source Control Model
+- [git] bind Git UI to SCM
 
 ## v0.4.1
 - [plugin] `workspace.openTextDocument` API now respects the contributed `FileSystemProviders`

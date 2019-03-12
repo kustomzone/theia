@@ -33,9 +33,8 @@ before(() => {
 });
 
 describe('theia left panel', () => {
-    it("should show 'Files' and 'Git'", () => {
+    it("should show 'Files' and 'Scm'", () => {
         expect(leftPanel.doesTabExist('Files')).to.be.true;
-        expect(leftPanel.doesTabExist('Git')).to.be.true;
     });
 
     describe('files tab', () => {
@@ -47,18 +46,6 @@ describe('theia left panel', () => {
             leftPanel.openCloseTab('Files');
             expect(leftPanel.isFileTreeVisible()).to.be.false;
             expect(leftPanel.isTabActive('Files')).to.be.false;
-        });
-    });
-
-    describe('git tab', () => {
-        it('should open/close the git tab', () => {
-            leftPanel.openCloseTab('Git');
-            expect(leftPanel.isGitContainerVisible()).to.be.true;
-            expect(leftPanel.isTabActive('Git')).to.be.true;
-
-            leftPanel.openCloseTab('Git');
-            expect(leftPanel.isGitContainerVisible()).to.be.false;
-            expect(leftPanel.isTabActive('Git')).to.be.false;
         });
     });
 });
