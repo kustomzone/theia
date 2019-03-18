@@ -18,6 +18,7 @@ import { injectable, inject, postConstruct } from 'inversify';
 import { Emitter, Event } from '@theia/core';
 import { CppPreferences } from './cpp-preferences';
 import { StorageService } from '@theia/core/lib/browser/storage-service';
+import { WorkspaceService } from '@theia/workspace/lib/browser';
 
 /**
  * Representation of a cpp build configuration.
@@ -43,14 +44,10 @@ export interface CppBuildConfiguration {
 }
 
 /**
- * Representation of a saved build configuration in local storage.
+ * Representation of all saved build configurations per workspace root in local storage.
  */
-class SavedActiveBuildConfiguration {
-
-    /**
-     * The name of the build configuration.
-     */
-    configName?: string;
+class SavedActiveBuildConfigurations {
+    configs: [string, CppBuildConfiguration | undefined][];
 }
 
 export const CppBuildConfigurationManager = Symbol('CppBuildConfigurationManager');
@@ -74,16 +71,23 @@ export interface CppBuildConfigurationManager {
     /**
      * Get the active build configuration.
      *
+     * @param root the optional workspace root.
      * @returns the active `CppBuildConfiguration` if it exists, else `undefined`.
      */
-    getActiveConfig(): CppBuildConfiguration | undefined;
+    getActiveConfig(root?: string): CppBuildConfiguration | undefined;
 
     /**
      * Set the active build configuration.
      *
      * @param config the active `CppBuildConfiguration`. If `undefined` no active build configuration will be set.
+     * @param root the optional workspace root.
      */
-    setActiveConfig(config: CppBuildConfiguration | undefined): void;
+    setActiveConfig(config: CppBuildConfiguration | undefined, root?: string): void;
+
+    /**
+     * Get the active build configurations for all roots.
+     */
+    getAllActiveConfigs?(): Map<string, CppBuildConfiguration | undefined>;
 
     /**
      * Event emitted when the active build configuration changes.
@@ -114,18 +118,24 @@ export class CppBuildConfigurationManagerImpl implements CppBuildConfigurationMa
     @inject(StorageService)
     protected readonly storageService: StorageService;
 
+    @inject(WorkspaceService)
+    protected readonly workspaceService: WorkspaceService;
+
     /**
-     * The current active build configuration.
-     * If `undefined` there is no current active build configuration selected.
+     * The current active build configurations map.
      */
-    protected activeConfig: CppBuildConfiguration | undefined;
+    protected activeConfigs: Map<string, CppBuildConfiguration | undefined>
+        = new Map<string, CppBuildConfiguration | undefined>();
 
     /**
      * Emitter for when the active build configuration changes.
      */
     protected readonly activeConfigChangeEmitter = new Emitter<CppBuildConfiguration | undefined>();
 
-    readonly ACTIVE_BUILD_CONFIGURATION_STORAGE_KEY = 'cpp.active-build-configuration';
+    /**
+     * Persistent storage key for the active build configurations map.
+     */
+    readonly ACTIVE_BUILD_CONFIGURATIONS_MAP_STORAGE_KEY = 'cpp.active-build-configurations-map';
 
     public ready: Promise<void>;
 
@@ -143,17 +153,14 @@ export class CppBuildConfigurationManagerImpl implements CppBuildConfigurationMa
      * Load the active build configuration from persistent storage.
      */
     protected async loadActiveConfiguration(): Promise<void> {
-        const savedConfig =
-            await this.storageService.getData<SavedActiveBuildConfiguration>(
-                this.ACTIVE_BUILD_CONFIGURATION_STORAGE_KEY);
-
-        if (savedConfig !== undefined && savedConfig.configName !== undefined) {
-            // Try to find an existing config with that name.
-            const configs = this.getConfigs();
-            const config = configs.find(cfg => savedConfig.configName === cfg.name);
-            if (config) {
-                this.setActiveConfig(config);
-            }
+        const savedConfig = await this.storageService.getData<SavedActiveBuildConfigurations>(
+            this.ACTIVE_BUILD_CONFIGURATIONS_MAP_STORAGE_KEY
+        );
+        if (savedConfig !== undefined) {
+            // read from local storage and update the map.
+            this.activeConfigs = new Map(savedConfig.configs.map<[string, CppBuildConfiguration | undefined]>(
+                ([key, value]) => [key, value]
+            ));
         }
     }
 
@@ -162,11 +169,13 @@ export class CppBuildConfigurationManagerImpl implements CppBuildConfigurationMa
      *
      * @param config the active `CppBuildConfiguration`.
      */
-    protected saveActiveConfiguration(config: CppBuildConfiguration | undefined): void {
-        this.storageService.setData<SavedActiveBuildConfiguration>(
-            this.ACTIVE_BUILD_CONFIGURATION_STORAGE_KEY, {
-                configName: config ? config.name : undefined,
-            });
+    protected saveActiveConfiguration(configs: Map<string, CppBuildConfiguration | undefined>): void {
+        const normalizedMap = Array.from(configs.entries()).map<[string, CppBuildConfiguration | undefined]>(
+            ([key, value]) => [key.toString(), value]
+        );
+        this.storageService.setData<SavedActiveBuildConfigurations>(
+            this.ACTIVE_BUILD_CONFIGURATIONS_MAP_STORAGE_KEY, { configs: normalizedMap }
+        );
     }
 
     /**
@@ -192,13 +201,21 @@ export class CppBuildConfigurationManagerImpl implements CppBuildConfigurationMa
         return a.name === b.name && a.directory === b.directory;
     }
 
-    getActiveConfig(): CppBuildConfiguration | undefined {
-        return this.activeConfig;
+    getActiveConfig(root?: string): CppBuildConfiguration | undefined {
+        // Get the active workspace root for the given uri, else for the first workspace root.
+        const workspaceRoot = root ? root : this.workspaceService.tryGetRoots()[0].uri;
+        return this.activeConfigs.get(workspaceRoot);
     }
 
-    setActiveConfig(config: CppBuildConfiguration | undefined): void {
-        this.activeConfig = config;
-        this.saveActiveConfiguration(config);
+    getAllActiveConfigs(): Map<string, CppBuildConfiguration | undefined> {
+        return this.activeConfigs;
+    }
+
+    setActiveConfig(config: CppBuildConfiguration | undefined, root?: string): void {
+        // Set the active workspace root for the given uri, else for the first workspace root.
+        const workspaceRoot = root ? root : this.workspaceService.tryGetRoots()[0].uri;
+        this.activeConfigs.set(workspaceRoot, config);
+        this.saveActiveConfiguration(this.activeConfigs);
         this.activeConfigChangeEmitter.fire(config);
     }
 

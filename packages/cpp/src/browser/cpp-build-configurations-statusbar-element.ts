@@ -35,8 +35,8 @@ export class CppBuildConfigurationsStatusBarElement {
      * and listen to changes to the active build configuration.
      */
     show(): void {
-        this.setCppBuildConfigElement(this.cppManager.getActiveConfig());
-        this.cppManager.onActiveConfigChange(config => this.setCppBuildConfigElement(config));
+        this.setCppBuildConfigElement(this.getValidActiveCount());
+        this.cppManager.onActiveConfigChange(() => this.setCppBuildConfigElement(this.getValidActiveCount()));
     }
 
     /**
@@ -45,14 +45,25 @@ export class CppBuildConfigurationsStatusBarElement {
      *
      * @param config the active `CppBuildConfiguration`.
      */
-    protected setCppBuildConfigElement(config: CppBuildConfiguration | undefined): void {
+    protected setCppBuildConfigElement(count: number): void {
         this.statusBar.setElement(this.cppIdentifier, {
-            text: `$(wrench) C/C++ ${config ? '(' + config.name + ')' : 'Build Config'}`,
+            text: `$(wrench) C/C++ Build Config (Active ${count})`,
             tooltip: 'C/C++ Build Config',
             alignment: StatusBarAlignment.RIGHT,
             command: CPP_CHANGE_BUILD_CONFIGURATION.id,
             priority: 0.5,
         });
+    }
+
+    /**
+     * Get the valid active configuration count.
+     */
+    protected getValidActiveCount(): number {
+        let items: (CppBuildConfiguration | undefined)[] = [];
+        if (this.cppManager.getAllActiveConfigs) {
+            items = [...this.cppManager.getAllActiveConfigs().values()].filter(config => !!config);
+        }
+        return items.length;
     }
 
 }
