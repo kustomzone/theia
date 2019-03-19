@@ -1,5 +1,5 @@
 /********************************************************************************
- * Copyright (C) 2017 TypeFox and others.
+ * Copyright (C) 2017-2019 TypeFox and others.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0 which is available at
@@ -14,7 +14,7 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { isOSX } from '../common/os';
+import { isOSX } from '../../common/os';
 
 /**
  * The key sequence for this binding. This key sequence should consist of one or more key strokes. Key strokes
@@ -192,37 +192,6 @@ export class KeyCode {
             this.shift = parts.some(part => part === KeyModifier.Shift);
             this.alt = parts.some(part => part === KeyModifier.Alt);
         }
-    }
-
-    /**
-     * Returns a normalized version of this keycode, if
-     * - shift or alt was pressed
-     * - meta or ctrl was pressed
-     * - a character exists
-     * - the character corresponds to a key on the US keyboard layout
-     *
-     * The resulting KeyCode will remove the shift/alt keys and use the character as the key.
-     * For instance on a german kb layout the sequence `ctrlCmd+shift+7` would be translated to `ctrlCmd+/`.
-     * @returns a normalized keycode or undefined
-     */
-    public normalizeToUsLayout(): KeyCode | undefined {
-        if ((this.shift || this.alt) && (this.meta || this.ctrl) && this.character && EASY_TO_KEY[this.character]) {
-            const modifiers: KeyModifier[] = [];
-            if (isOSX) {
-                if (this.meta) {
-                    modifiers.push(KeyModifier.CtrlCmd);
-                }
-                if (this.ctrl) {
-                    modifiers.push(KeyModifier.MacCtrl);
-                }
-            } else {
-                if (this.ctrl) {
-                    modifiers.push(KeyModifier.CtrlCmd);
-                }
-            }
-            return KeyCode.createKeyCode(<Keystroke>{ first: EASY_TO_KEY[this.character], modifiers });
-        }
-        return undefined;
     }
 
     /* Return true of string is a modifier M1 to M4 */
