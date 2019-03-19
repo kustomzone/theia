@@ -30,6 +30,20 @@ export interface IKeyboardLayoutService {
 
 export abstract class AbstractKeyboardLayoutService implements IKeyboardLayoutService {
 
+    private _currentLayout: KeyboardLayout;
+
+    protected get currentLayout(): KeyboardLayout {
+        return this._currentLayout;
+    }
+
+    protected set currentLayout(newLayout: KeyboardLayout) {
+        const previousLayout = this._currentLayout;
+        this._currentLayout = newLayout;
+        if (newLayout !== previousLayout) {
+            this.keyboardLayoutChanged.fire(newLayout);
+        }
+    }
+
     protected keyboardLayoutChanged = new Emitter<KeyboardLayout>();
 
     get onKeyboardLayoutChanged() {
@@ -39,8 +53,6 @@ export abstract class AbstractKeyboardLayoutService implements IKeyboardLayoutSe
     resolveKeyCode(code: KeyCode): KeyCode {
         return code;
     }
-
-    protected abstract get currentLayout(): KeyboardLayout;
 
 }
 

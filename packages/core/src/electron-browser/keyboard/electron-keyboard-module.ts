@@ -14,6 +14,11 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-export * from './keys';
-export * from './keyboard-layout-service';
-export * from './keyboard-browser';
+import { ContainerModule } from 'inversify';
+import { IKeyboardLayoutService } from '../../browser/keyboard/keyboard-layout-service';
+import { ElectronKeyboardLayoutService } from './keyboard-electron';
+
+export const electronKeyboardModule = new ContainerModule((bind, unbind, isBound, rebind) => {
+    bind(ElectronKeyboardLayoutService).toSelf().inSingletonScope();
+    bind(IKeyboardLayoutService).toService(ElectronKeyboardLayoutService);
+});

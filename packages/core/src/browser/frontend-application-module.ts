@@ -71,7 +71,6 @@ import { QuickPickServiceImpl } from './quick-open/quick-pick-service-impl';
 import { QuickPickService, quickPickServicePath } from '../common/quick-pick-service';
 import { ContextKeyService } from './context-key-service';
 import { ResourceContextKey } from './resource-context-key';
-import { IKeyboardLayoutService, BrowserKeyboardLayoutService } from './keyboard';
 
 export const frontendApplicationModule = new ContainerModule((bind, unbind, isBound, rebind) => {
     const themeService = ThemeService.get();
@@ -82,9 +81,6 @@ export const frontendApplicationModule = new ContainerModule((bind, unbind, isBo
     bind(FrontendApplicationStateService).toSelf().inSingletonScope();
     bind(DefaultFrontendApplicationContribution).toSelf();
     bindContributionProvider(bind, FrontendApplicationContribution);
-
-    bind(BrowserKeyboardLayoutService).toSelf().inSingletonScope();
-    bind(IKeyboardLayoutService).toService(BrowserKeyboardLayoutService);
 
     bind(ApplicationShellOptions).toConstantValue({});
     bind(ApplicationShell).toSelf().inSingletonScope();

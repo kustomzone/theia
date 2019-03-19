@@ -57,6 +57,10 @@
     {
       "frontend": "lib/browser/window/browser-window-module",
       "frontendElectron": "lib/electron-browser/window/electron-window-module"
+    },
+    {
+      "frontend": "lib/browser/keyboard/browser-keyboard-module",
+      "frontendElectron": "lib/electron-browser/keyboard/electron-keyboard-module.ts"
     }
   ],
   "keywords": [

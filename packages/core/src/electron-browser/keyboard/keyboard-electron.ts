@@ -14,6 +14,26 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-export * from './keys';
-export * from './keyboard-layout-service';
-export * from './keyboard-browser';
+import { injectable, postConstruct } from 'inversify';
+import * as nativeKeymap from 'native-keymap';
+import { AbstractKeyboardLayoutService, KeyboardLayout } from '../../browser/keyboard/keyboard-layout-service';
+
+@injectable()
+export class ElectronKeyboardLayoutService extends AbstractKeyboardLayoutService {
+
+    @postConstruct()
+    protected initialize(): void {
+        this.currentLayout = this.getFromNativeKeymap();
+        nativeKeymap.onDidChangeKeyboardLayout(() => {
+            this.currentLayout = this.getFromNativeKeymap();
+        });
+    }
+
+    protected getFromNativeKeymap(): KeyboardLayout {
+        return {
+            info: nativeKeymap.getCurrentKeyboardLayout(),
+            mapping: nativeKeymap.getKeyMap()
+        };
+    }
+
+}
