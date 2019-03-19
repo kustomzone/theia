@@ -131,7 +131,7 @@ export class QuickFileOpenService implements QuickOpenModel, QuickOpenHandler {
         const keyCommand = this.keybindingRegistry.getKeybindingsForCommand(quickFileOpen.id);
         if (keyCommand) {
             // We only consider the first keybinding.
-            const accel = Keybinding.acceleratorFor(keyCommand[0], '+');
+            const accel = this.keybindingRegistry.acceleratorFor(keyCommand[0], '+');
             return accel.join(' ');
         }
 

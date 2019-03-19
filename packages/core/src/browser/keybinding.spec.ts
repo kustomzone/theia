@@ -21,7 +21,7 @@ import { Container, injectable, ContainerModule } from 'inversify';
 import { bindContributionProvider } from '../common/contribution-provider';
 import { ILogger } from '../common/logger';
 import { KeybindingRegistry, KeybindingContext, Keybinding, KeybindingContribution, KeybindingScope } from './keybinding';
-import { KeyCode, Key, KeyModifier, KeySequence, EasyKey } from './keys';
+import { KeyCode, Key, KeyModifier, KeySequence, EasyKey } from './keyboard/keys';
 import { CommandRegistry, CommandService, CommandContribution, Command } from '../common/command';
 import { LabelParser } from './label-parser';
 import { MockLogger } from '../common/test/mock-logger';
@@ -508,13 +508,6 @@ describe('keys api', () => {
         const keyCode = KeyCode.createKeyCode({ modifiers: [KeyModifier.CtrlCmd, KeyModifier.Alt] });
         expect(keyCode).to.be.deep.equal(KeyCode.createKeyCode({ modifiers: [KeyModifier.CtrlCmd, KeyModifier.Alt] }));
         expect(keyCode.isModifierOnly()).to.be.true;
-    });
-
-    it('it should translate non US layout chords properly', () => {
-        // mimic a german layout, i.e. the '/' is on the 'Shift+7'.
-        const keyCode = new KeyCode(KeyCode.parse('ctrlcmd+shift+7').keystroke, '/');
-        const normalized = keyCode.normalizeToUsLayout();
-        expect(normalized).to.be.deep.equal(KeyCode.parse('ctrlcmd+/'));
     });
 
     it('parse bogus keybinding', () => {

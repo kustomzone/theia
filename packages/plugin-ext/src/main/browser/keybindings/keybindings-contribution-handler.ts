@@ -39,7 +39,8 @@ export class KeybindingsContributionPointHandler {
             const keybinding = this.toKeybinding(raw);
             if (keybinding) {
                 try {
-                    const keybindingResult = this.keybindingRegistry.getKeybindingsForKeySequence(KeySequence.parse(keybinding.keybinding));
+                    const bindingKeySequence = this.keybindingRegistry.resolveKeybinding(keybinding);
+                    const keybindingResult = this.keybindingRegistry.getKeybindingsForKeySequence(bindingKeySequence);
                     this.handleShadingKeybindings(keybinding, keybindingResult.shadow);
                     this.handlePartialKeybindings(keybinding, keybindingResult.partial);
                     keybindings.push(keybinding);

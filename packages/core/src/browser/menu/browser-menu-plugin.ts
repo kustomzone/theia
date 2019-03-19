@@ -106,7 +106,7 @@ export class BrowserMainMenuFactory {
         /* Only consider the first keybinding. */
         if (bindings.length > 0) {
             const binding = bindings[0];
-            const keys = Keybinding.acceleratorFor(binding);
+            const keys = this.keybindingRegistry.acceleratorFor(binding);
             commands.addKeyBinding({
                 command: command.id,
                 keys,

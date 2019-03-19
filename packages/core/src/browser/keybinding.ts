@@ -52,12 +52,6 @@ export namespace Keybinding {
         return JSON.stringify(copy);
     }
 
-    /* Return a user visible representation of a keybinding.  */
-    export function acceleratorFor(keybinding: Keybinding, separator: string = ' ') {
-        const keyCodesString = keybinding.keybinding.split(' ');
-        return KeySequence.acceleratorFor(keyCodesString.map(k => KeyCode.parse(k)), separator);
-    }
-
     /* Determine whether object is a KeyBinding */
     // tslint:disable-next-line:no-any
     export function is(arg: Keybinding | any): arg is Keybinding {
@@ -234,7 +228,7 @@ export class KeybindingRegistry {
         }
     }
 
-    protected resolveKeybinding(binding: ResolvedKeybinding): KeyCode[] {
+    resolveKeybinding(binding: ResolvedKeybinding): KeyCode[] {
         if (!binding.resolved) {
             const sequence = KeySequence.parse(binding.keybinding);
             binding.resolved = sequence.map(code => this.keyboardLayoutService.resolveKeyCode(code));
@@ -249,9 +243,9 @@ export class KeybindingRegistry {
      * @param binding the keybinding to test collisions for
      */
     containsKeybinding(bindings: Keybinding[], binding: Keybinding): boolean {
-        const collisions = this.getKeySequenceCollisions(bindings, KeySequence.parse(
-            this.getCurrentPlatformKeybinding(binding.keybinding))
-        ).filter(b => b.context === binding.context);
+        const bindingKeySequence = this.resolveKeybinding(binding);
+        const collisions = this.getKeySequenceCollisions(bindings, bindingKeySequence)
+            .filter(b => b.context === binding.context);
 
         if (collisions.full.length > 0) {
             this.logger.warn('Collided keybinding is ignored; ',
@@ -279,13 +273,11 @@ export class KeybindingRegistry {
     }
 
     /**
-     * Converts special `ctrlcmd` modifier back to `ctrl` for non-OSX users in a keybinding string.
-     * (`ctrlcmd` is mapped to the same actual key as `ctrl` under non-OSX users)
-     *
-     * @param keybinding The keybinding string to convert.
+     * Return a user visible representation of a keybinding.
      */
-    protected getCurrentPlatformKeybinding(keybinding: string): string {
-        return isOSX ? keybinding : keybinding.replace(/\bctrlcmd\b/, 'ctrl');
+    acceleratorFor(keybinding: Keybinding, separator: string = ' ') {
+        const bindingKeySequence = this.resolveKeybinding(keybinding);
+        return KeySequence.acceleratorFor(bindingKeySequence, separator);
     }
 
     /**
@@ -297,8 +289,8 @@ export class KeybindingRegistry {
     protected getKeybindingCollisions(bindings: Keybinding[], binding: Keybinding): KeybindingRegistry.KeybindingsResult {
         const result = new KeybindingRegistry.KeybindingsResult();
         try {
-            const keySequence = KeySequence.parse(this.getCurrentPlatformKeybinding(binding.keybinding));
-            result.merge(this.getKeySequenceCollisions(bindings, keySequence));
+            const bindingKeySequence = this.resolveKeybinding(binding);
+            result.merge(this.getKeySequenceCollisions(bindings, bindingKeySequence));
         } catch (error) {
             this.logger.warn(error);
         }
@@ -309,9 +301,9 @@ export class KeybindingRegistry {
      * Finds collisions for a key sequence inside a list of bindings (error-free)
      *
      * @param bindings the reference bindings
-     * @param keySequence the sequence to match
+     * @param candidate the sequence to match
      */
-    protected getKeySequenceCollisions(bindings: ResolvedKeybinding[], candidate: KeyCode[]): KeybindingRegistry.KeybindingsResult {
+    protected getKeySequenceCollisions(bindings: ResolvedKeybinding[], candidate: KeySequence): KeybindingRegistry.KeybindingsResult {
         const result = new KeybindingRegistry.KeybindingsResult();
         for (const binding of bindings) {
             try {
