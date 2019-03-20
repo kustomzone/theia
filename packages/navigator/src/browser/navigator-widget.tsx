@@ -17,7 +17,7 @@
 import { injectable, inject, postConstruct } from 'inversify';
 import { Message } from '@phosphor/messaging';
 import URI from '@theia/core/lib/common/uri';
-import { CommandService, SelectionService } from '@theia/core/lib/common';
+import { CommandService, SelectionService, Disposable } from '@theia/core/lib/common';
 import { CommonCommands, CorePreferences } from '@theia/core/lib/browser';
 import {
     ContextMenuRenderer, ExpandableTreeNode,
@@ -35,7 +35,7 @@ import * as React from 'react';
 import { NavigatorContextKeyService } from './navigator-context-key-service';
 
 export const FILE_NAVIGATOR_ID = 'files';
-export const LABEL = 'Files';
+export const LABEL = 'Explorer';
 export const CLASS = 'theia-Files';
 
 @injectable()
@@ -60,7 +60,7 @@ export class FileNavigatorWidget extends FileTreeWidget {
         this.id = FILE_NAVIGATOR_ID;
         this.title.label = LABEL;
         this.title.caption = LABEL;
-        this.title.iconClass = 'fa navigator-tab-icon';
+        this.title.iconClass = 'navigator-tab-icon';
         this.addClass(CLASS);
         this.initialize();
     }
@@ -83,6 +83,11 @@ export class FileNavigatorWidget extends FileTreeWidget {
                         this.model.expandNode(child);
                     }
                 }
+            }),
+            Disposable.create(() => {
+                if (this.selectionService.selection === this) {
+                    this.selectionService.selection = undefined;
+                }
             })
         ]);
     }
@@ -90,6 +95,10 @@ export class FileNavigatorWidget extends FileTreeWidget {
     protected onActivateRequest(msg: Message): void {
         super.onActivateRequest(msg);
         this.selectionService.selection = this.model.selectedNodes;
+    }
+
+    protected async initialize(): Promise<void> {
+        await this.model.updateRoot();
         const root = this.model.root;
         if (CompositeTreeNode.is(root) && root.children.length === 1) {
             const child = root.children[0];
@@ -98,10 +107,6 @@ export class FileNavigatorWidget extends FileTreeWidget {
                 this.model.expandNode(child);
             }
         }
-    }
-
-    protected async initialize(): Promise<void> {
-        await this.model.updateRoot();
     }
 
     protected enableDndOnMainPanel(): void {

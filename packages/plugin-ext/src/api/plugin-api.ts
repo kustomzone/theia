@@ -379,13 +379,14 @@ export interface QuickOpenMain {
 
 export interface WorkspaceMain {
     $pickWorkspaceFolder(options: WorkspaceFolderPickOptionsMain): Promise<theia.WorkspaceFolder | undefined>;
-    $startFileSearch(includePattern: string, excludePatternOrDisregardExcludes: string | false,
+    $startFileSearch(includePattern: string, includeFolder: string | undefined, excludePatternOrDisregardExcludes: string | false,
         maxResults: number | undefined, token: theia.CancellationToken): PromiseLike<UriComponents[]>;
     $registerTextDocumentContentProvider(scheme: string): Promise<void>;
     $unregisterTextDocumentContentProvider(scheme: string): void;
     $onTextDocumentContentChange(uri: string, content: string): void;
     $registerFileSystemWatcher(options: FileWatcherSubscriberOptions): Promise<string>;
     $unregisterFileSystemWatcher(watcherId: string): Promise<void>;
+    $updateWorkspaceFolders(start: number, deleteCount?: number, ...rootsToAdd: string[]): Promise<void>;
 }
 
 export interface WorkspaceExt {
@@ -738,6 +739,7 @@ export interface TextEditorsMain {
     $tryApplyEdits(id: string, modelVersionId: number, edits: SingleEditOperation[], opts: ApplyEditsOptions): Promise<boolean>;
     $tryApplyWorkspaceEdit(workspaceEditDto: WorkspaceEditDto): Promise<boolean>;
     $tryInsertSnippet(id: string, template: string, selections: Range[], opts: UndoStopOptions): Promise<boolean>;
+    $saveAll(includeUntitled?: boolean): Promise<boolean>;
     // $getDiffInformation(id: string): Promise<editorCommon.ILineChange[]>;
 }
 
@@ -822,6 +824,13 @@ export interface PreferenceChangeExt {
     preferenceName: string,
     newValue: any
 }
+
+export interface TerminalOptionsExt {
+    attributes?: {
+        [key: string]: string;
+    }
+}
+
 export interface PreferenceRegistryExt {
     $acceptConfigurationChanged(data: { [key: string]: any }, eventData: PreferenceChangeExt): void;
 }
@@ -1065,6 +1074,7 @@ export interface DebugExt {
     $getConfigurationSnippets(debugType: string): Promise<IJSONSchemaSnippet[]>;
     $createDebugSession(debugConfiguration: theia.DebugConfiguration): Promise<string>;
     $terminateDebugSession(sessionId: string): Promise<void>;
+    $getTerminalCreationOptions(debugType: string): Promise<TerminalOptionsExt | undefined>;
 }
 
 export interface DebugMain {

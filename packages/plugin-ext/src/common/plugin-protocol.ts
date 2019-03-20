@@ -453,7 +453,7 @@ export interface FoldingRules {
 export interface ViewContainer {
     id: string;
     title: string;
-    icon: string;
+    iconUrl: string;
 }
 
 /**
@@ -621,6 +621,7 @@ export interface ServerPluginRunner {
     onMessage(jsonMessage: any): void;
     setClient(client: HostedPluginClient): void;
     setDefault(defaultRunner: ServerPluginRunner): void;
+    clientClosed(): void;
 
     /**
      * Provides additional metadata.
