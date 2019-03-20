@@ -20,7 +20,7 @@ import {
     CommandRegistry, isOSX, ActionMenuNode, CompositeMenuNode,
     MAIN_MENU_BAR, MenuModelRegistry, MenuPath
 } from '../../common';
-import { PreferenceService, KeybindingRegistry, Keybinding, KeyCode, Key } from '../../browser';
+import { PreferenceService, KeybindingRegistry, Keybinding, Key } from '../../browser';
 import { ContextKeyService } from '../../browser/context-key-service';
 import { Anchor } from '../../browser/context-menu-renderer';
 

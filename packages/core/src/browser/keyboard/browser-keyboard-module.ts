@@ -15,10 +15,10 @@
  ********************************************************************************/
 
 import { ContainerModule } from 'inversify';
-import { IKeyboardLayoutService } from './keyboard-layout-service';
+import { KeyboardLayoutService } from './keyboard-layout-service';
 import { BrowserKeyboardLayoutService } from './keyboard-browser';
 
 export const browserKeyboardModule = new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(BrowserKeyboardLayoutService).toSelf().inSingletonScope();
-    bind(IKeyboardLayoutService).toService(BrowserKeyboardLayoutService);
+    bind(KeyboardLayoutService).toService(BrowserKeyboardLayoutService);
 });

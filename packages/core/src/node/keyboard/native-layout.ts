@@ -14,25 +14,36 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { injectable, postConstruct, inject } from 'inversify';
-import { KeyboardLayoutProvider, NativeKeyboardLayout } from '../../common/keyboard/native-layout';
-import { AbstractKeyboardLayoutService } from '../../browser/keyboard/keyboard-layout-service';
+import * as nativeKeymap from 'native-keymap';
+import { injectable, postConstruct } from 'inversify';
+import { KeyboardLayoutProvider, NativeKeyboardLayout, KeyboardLayoutClient } from '../../common/keyboard/native-layout';
 
 @injectable()
-export class ElectronKeyboardLayoutService extends AbstractKeyboardLayoutService {
-
-    @inject(KeyboardLayoutProvider)
-    protected readonly keyboardLayoutProvider: KeyboardLayoutProvider;
+export class KeyboardLayoutProviderImpl implements KeyboardLayoutProvider {
 
     @postConstruct()
     protected initialize(): void {
-        this.currentLayout = this.keyboardLayoutProvider.getNativeLayout();
-        const layoutService = this;
-        this.keyboardLayoutProvider.setClient({
-            onNativeLayoutChanged(newLayout: NativeKeyboardLayout) {
-                layoutService.currentLayout = newLayout;
+        nativeKeymap.onDidChangeKeyboardLayout(() => {
+            if (this.client) {
+                this.client.onNativeLayoutChanged(this.getNativeLayout());
             }
         });
+    }
+
+    protected client?: KeyboardLayoutClient;
+
+    setClient(client?: KeyboardLayoutClient): void {
+        this.client = client;
+    }
+
+    dispose(): void {
+    }
+
+    getNativeLayout(): NativeKeyboardLayout {
+        return {
+            info: nativeKeymap.getCurrentKeyboardLayout(),
+            mapping: nativeKeymap.getKeyMap()
+        };
     }
 
 }

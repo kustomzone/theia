@@ -21,7 +21,7 @@ import {
     CommandRegistry, ActionMenuNode, CompositeMenuNode,
     MenuModelRegistry, MAIN_MENU_BAR, MenuPath, ILogger
 } from '../../common';
-import { KeybindingRegistry, Keybinding } from '../keybinding';
+import { KeybindingRegistry } from '../keybinding';
 import { FrontendApplicationContribution, FrontendApplication } from '../frontend-application';
 import { ContextKeyService } from '../context-key-service';
 import { Anchor } from '../context-menu-renderer';

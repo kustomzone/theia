@@ -60,7 +60,7 @@
     },
     {
       "frontend": "lib/browser/keyboard/browser-keyboard-module",
-      "frontendElectron": "lib/electron-browser/keyboard/electron-keyboard-module.ts"
+      "frontendElectron": "lib/electron-browser/keyboard/electron-keyboard-module"
     }
   ],
   "keywords": [

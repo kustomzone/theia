@@ -17,11 +17,10 @@
 import { injectable, inject, named } from 'inversify';
 import { CommandRegistry } from '../common/command';
 import { KeyCode, KeySequence } from './keyboard/keys';
-import { IKeyboardLayoutService } from './keyboard/keyboard-layout-service';
+import { KeyboardLayoutService } from './keyboard/keyboard-layout-service';
 import { ContributionProvider } from '../common/contribution-provider';
 import { ILogger } from '../common/logger';
 import { StatusBarAlignment, StatusBar } from './status-bar/status-bar';
-import { isOSX } from '../common/os';
 import { ContextKeyService } from './context-key-service';
 
 export enum KeybindingScope {
@@ -121,8 +120,8 @@ export class KeybindingRegistry {
     protected readonly contexts: { [id: string]: KeybindingContext } = {};
     protected readonly keymaps: Keybinding[][] = [...Array(KeybindingScope.length)].map(() => []);
 
-    @inject(IKeyboardLayoutService)
-    protected readonly keyboardLayoutService: IKeyboardLayoutService;
+    @inject(KeyboardLayoutService)
+    protected readonly keyboardLayoutService: KeyboardLayoutService;
 
     @inject(ContributionProvider) @named(KeybindingContext)
     protected readonly contextProvider: ContributionProvider<KeybindingContext>;
@@ -143,6 +142,9 @@ export class KeybindingRegistry {
     protected readonly whenContextService: ContextKeyService;
 
     onStart(): void {
+        this.keyboardLayoutService.onKeyboardLayoutChanged(newLayout => {
+            this.clearResolvedKeybindings();
+        });
         this.registerContext(KeybindingContexts.NOOP_CONTEXT);
         this.registerContext(KeybindingContexts.DEFAULT_CONTEXT);
         this.registerContext(...this.contextProvider.getContributions());
@@ -234,6 +236,16 @@ export class KeybindingRegistry {
             binding.resolved = sequence.map(code => this.keyboardLayoutService.resolveKeyCode(code));
         }
         return binding.resolved;
+    }
+
+    protected clearResolvedKeybindings(): void {
+        for (let i = KeybindingScope.DEFAULT; i < KeybindingScope.END; i++) {
+            const bindings = this.keymaps[i];
+            for (let j = 0; j < bindings.length; j++) {
+                const binding = bindings[j] as ResolvedKeybinding;
+                binding.resolved = undefined;
+            }
+        }
     }
 
     /**

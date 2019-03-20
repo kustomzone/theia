@@ -18,15 +18,21 @@ import { injectable, postConstruct } from 'inversify';
 import { isOSX } from '../../common/os';
 import { AbstractKeyboardLayoutService, KeyboardLayout } from './keyboard-layout-service';
 
-import macUS = require('../../common/keyboard-layouts/mac-en-US.json');
-import macFrench = require('../../common/keyboard-layouts/mac-fr-French.json');
-import macGerman = require('../../common/keyboard-layouts/mac-de-German.json');
-import winUS = require('../../common/keyboard-layouts/win-en-US.json');
-import winFrench = require('../../common/keyboard-layouts/win-fr-French.json');
-import winGerman = require('../../common/keyboard-layouts/win-de-German.json');
-
 @injectable()
 export class BrowserKeyboardLayoutService extends AbstractKeyboardLayoutService {
+
+    private macUS = require('../../../src/common/keyboard/layouts/mac-en-US.json');
+    private macFrench = require('../../../src/common/keyboard/layouts/mac-fr-French.json');
+    private macGerman = require('../../../src/common/keyboard/layouts/mac-de-German.json');
+    private winUS = require('../../../src/common/keyboard/layouts/win-en-US.json');
+    private winFrench = require('../../../src/common/keyboard/layouts/win-fr-French.json');
+    private winGerman = require('../../../src/common/keyboard/layouts/win-de-German.json');
+
+    protected get allLayouts(): KeyboardLayout[] {
+        return [
+            this.winUS, this.macUS, this.winFrench, this.macFrench, this.winGerman, this.macGerman
+        ];
+    }
 
     @postConstruct()
     protected initialize(): void {
@@ -34,7 +40,7 @@ export class BrowserKeyboardLayoutService extends AbstractKeyboardLayoutService 
         if (keyboard && keyboard.getLayoutMap) {
             const update = () => {
                 keyboard.getLayoutMap().then(layoutMap => {
-                    this.currentLayout = this.getFromLayoutMap(layoutMap)
+                    this.currentLayout = this.getFromLayoutMap(layoutMap);
                 });
             };
             update();
@@ -42,7 +48,7 @@ export class BrowserKeyboardLayoutService extends AbstractKeyboardLayoutService 
         } else if (navigator.language) {
             this.currentLayout = this.getFromLanguage(navigator.language);
         } else {
-            this.currentLayout = isOSX ? macUS : winUS;
+            this.currentLayout = isOSX ? this.macUS : this.winUS;
         }
     }
 
@@ -50,7 +56,7 @@ export class BrowserKeyboardLayoutService extends AbstractKeyboardLayoutService 
      * @param layoutMap a keyboard layout map according to https://wicg.github.io/keyboard-map/
      */
     protected getFromLayoutMap(layoutMap: KeyboardLayoutMap): KeyboardLayout {
-        const tester = new KeyboardTester();
+        const tester = new KeyboardTester(this.allLayouts);
         for (const [code, key] of layoutMap.entries()) {
             tester.updateScores({ code, key });
         }
@@ -58,7 +64,7 @@ export class BrowserKeyboardLayoutService extends AbstractKeyboardLayoutService 
         if (result.length > 0) {
             return result[0];
         } else {
-            return isOSX ? macUS : winUS;
+            return isOSX ? this.macUS : this.winUS;
         }
     }
 
@@ -67,11 +73,11 @@ export class BrowserKeyboardLayoutService extends AbstractKeyboardLayoutService 
      */
     protected getFromLanguage(language: string): KeyboardLayout {
         if (language.startsWith('de')) {
-            return isOSX ? macGerman : winGerman;
+            return isOSX ? this.macGerman : this.winGerman;
         } else if (language.startsWith('fr')) {
-            return isOSX ? macFrench : winFrench;
+            return isOSX ? this.macFrench : this.winFrench;
         } else {
-            return isOSX ? macUS : winUS;
+            return isOSX ? this.macUS : this.winUS;
         }
     }
 
@@ -88,7 +94,7 @@ interface Keyboard {
 
 type KeyboardLayoutMap = Map<string, string>;
 
-export interface KeyboardTestInput {
+interface KeyboardTestInput {
     code: string;
     key: string;
     shiftKey?: boolean;
@@ -96,12 +102,13 @@ export interface KeyboardTestInput {
     altKey?: boolean;
 }
 
-export class KeyboardTester {
+class KeyboardTester {
 
-    readonly candidates: KeyboardLayout[] = [
-        winUS, macUS, winFrench, macFrench, winGerman, macGerman
-    ];
-    readonly scores: number[] = this.candidates.map(() => 0);
+    private readonly scores: number[];
+
+    constructor(private readonly candidates: KeyboardLayout[]) {
+        this.scores = this.candidates.map(() => 0);
+    }
 
     testCandidate(candidate: KeyboardLayout, input: KeyboardTestInput): number {
         let property: 'value' | 'withShift' | 'withAltGr' | 'withShiftAltGr';

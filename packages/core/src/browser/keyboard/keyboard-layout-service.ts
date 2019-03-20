@@ -14,13 +14,14 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
+import { injectable } from 'inversify';
 import { IKeyboardMapping, IKeyboardLayoutInfo } from 'native-keymap';
 import { Emitter, Event } from '../../common/event';
 import { KeyCode } from './keys';
 
-export const IKeyboardLayoutService = Symbol('IKeyboardLayoutService');
+export const KeyboardLayoutService = Symbol('KeyboardLayoutService');
 
-export interface IKeyboardLayoutService {
+export interface KeyboardLayoutService {
 
     readonly onKeyboardLayoutChanged: Event<KeyboardLayout>;
 
@@ -28,7 +29,8 @@ export interface IKeyboardLayoutService {
 
 }
 
-export abstract class AbstractKeyboardLayoutService implements IKeyboardLayoutService {
+@injectable()
+export abstract class AbstractKeyboardLayoutService implements KeyboardLayoutService {
 
     private _currentLayout: KeyboardLayout;
 

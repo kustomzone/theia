@@ -22,15 +22,16 @@ import { bindContributionProvider } from '../common/contribution-provider';
 import { ILogger } from '../common/logger';
 import { KeybindingRegistry, KeybindingContext, Keybinding, KeybindingContribution, KeybindingScope } from './keybinding';
 import { KeyCode, Key, KeyModifier, KeySequence, EasyKey } from './keyboard/keys';
+import { KeyboardLayoutService, AbstractKeyboardLayoutService } from './keyboard/keyboard-layout-service';
 import { CommandRegistry, CommandService, CommandContribution, Command } from '../common/command';
 import { LabelParser } from './label-parser';
 import { MockLogger } from '../common/test/mock-logger';
 import { StatusBar, StatusBarImpl } from './status-bar/status-bar';
 import { FrontendApplicationStateService } from './frontend-application-state';
+import { ContextKeyService } from './context-key-service';
 import * as os from '../common/os';
 import * as chai from 'chai';
 import * as sinon from 'sinon';
-import { ContextKeyService } from './context-key-service';
 
 disableJSDOM();
 
@@ -48,6 +49,9 @@ before(async () => {
 
         /* Mock logger binding*/
         bind(ILogger).to(MockLogger);
+
+        bind(MockKeyboardLayoutService).toSelf().inSingletonScope();
+        bind(KeyboardLayoutService).toService(MockKeyboardLayoutService);
 
         bindContributionProvider(bind, KeybindingContext);
 
@@ -530,6 +534,10 @@ const TEST_COMMAND2: Command = {
 const TEST_COMMAND_SHADOW: Command = {
     id: 'test.command-shadow'
 };
+
+@injectable()
+export class MockKeyboardLayoutService extends AbstractKeyboardLayoutService {
+}
 
 @injectable()
 export class TestContribution implements CommandContribution, KeybindingContribution {

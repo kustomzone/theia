@@ -30,6 +30,8 @@ import { EnvVariablesServer, envVariablesPath } from './../common/env-variables'
 import { EnvVariablesServerImpl } from './env-variables';
 import { ConnectionContainerModule } from './messaging/connection-container-module';
 import { QuickPickService, quickPickServicePath } from '../common/quick-pick-service';
+import { KeyboardLayoutClient, KeyboardLayoutProvider, keyboardPath } from '../common/keyboard/native-layout';
+import { KeyboardLayoutProviderImpl } from './keyboard/native-layout';
 
 decorate(injectable(), ApplicationPackage);
 
@@ -90,4 +92,12 @@ export const backendApplicationModule = new ContainerModule(bind => {
         const { projectPath } = container.get(BackendApplicationCliContribution);
         return new ApplicationPackage({ projectPath });
     }).inSingletonScope();
+
+    bind(KeyboardLayoutProviderImpl).toSelf().inSingletonScope();
+    bind(KeyboardLayoutProvider).toService(KeyboardLayoutProviderImpl);
+    bind(ConnectionHandler).toDynamicValue(ctx =>
+        new JsonRpcConnectionHandler<KeyboardLayoutClient>(keyboardPath, () =>
+            ctx.container.get(KeyboardLayoutProvider)
+        )
+    );
 });

@@ -14,17 +14,22 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { ContainerModule } from 'inversify';
-import { KeyboardLayoutProvider, keyboardPath } from '../../common/keyboard/native-layout';
-import { KeyboardLayoutService } from '../../browser/keyboard/keyboard-layout-service';
-import { WebSocketConnectionProvider } from '../../browser/messaging/ws-connection-provider';
-import { ElectronKeyboardLayoutService } from './keyboard-electron';
+import { IKeyboardLayoutInfo, IKeyboardMapping } from 'native-keymap';
+import { JsonRpcServer } from '../messaging/proxy-factory';
 
-export const electronKeyboardModule = new ContainerModule((bind, unbind, isBound, rebind) => {
-    bind(ElectronKeyboardLayoutService).toSelf().inSingletonScope();
-    bind(KeyboardLayoutService).toService(ElectronKeyboardLayoutService);
+export const keyboardPath = '/services/keyboard';
 
-    bind(KeyboardLayoutProvider).toDynamicValue(ctx =>
-        WebSocketConnectionProvider.createProxy<KeyboardLayoutProvider>(ctx.container, keyboardPath)
-    ).inSingletonScope();
-});
+export const KeyboardLayoutProvider = Symbol('IKeyboardLayoutProvider');
+
+export interface KeyboardLayoutProvider extends JsonRpcServer<KeyboardLayoutClient> {
+    getNativeLayout(): NativeKeyboardLayout;
+}
+
+export interface KeyboardLayoutClient {
+    onNativeLayoutChanged(newLayout: NativeKeyboardLayout): void;
+}
+
+export interface NativeKeyboardLayout {
+    info: IKeyboardLayoutInfo;
+    mapping: IKeyboardMapping;
+}
