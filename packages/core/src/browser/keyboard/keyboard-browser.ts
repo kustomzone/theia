@@ -44,7 +44,9 @@ export class BrowserKeyboardLayoutService extends AbstractKeyboardLayoutService 
                 });
             };
             update();
-            keyboard.addEventListener('layoutchange', update);
+            if (keyboard.addEventListener) {
+                keyboard.addEventListener('layoutchange', update);
+            }
         } else if (navigator.language) {
             this.currentLayout = this.getFromLanguage(navigator.language);
         } else {
@@ -72,12 +74,22 @@ export class BrowserKeyboardLayoutService extends AbstractKeyboardLayoutService 
      * @param language an IETF BCP 47 language tag
      */
     protected getFromLanguage(language: string): KeyboardLayout {
-        if (language.startsWith('de')) {
-            return isOSX ? this.macGerman : this.winGerman;
-        } else if (language.startsWith('fr')) {
-            return isOSX ? this.macFrench : this.winFrench;
+        if (isOSX) {
+            if (language.startsWith('de')) {
+                return this.macGerman;
+            } else if (language.startsWith('fr')) {
+                return this.macFrench;
+            } else {
+                return this.macUS;
+            }
         } else {
-            return isOSX ? this.macUS : this.winUS;
+            if (language.startsWith('de')) {
+                return this.winGerman;
+            } else if (language.startsWith('fr')) {
+                return this.winFrench;
+            } else {
+                return this.winUS;
+            }
         }
     }
 

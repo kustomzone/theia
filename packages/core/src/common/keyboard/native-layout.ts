@@ -22,7 +22,7 @@ export const keyboardPath = '/services/keyboard';
 export const KeyboardLayoutProvider = Symbol('IKeyboardLayoutProvider');
 
 export interface KeyboardLayoutProvider extends JsonRpcServer<KeyboardLayoutClient> {
-    getNativeLayout(): NativeKeyboardLayout;
+    getNativeLayout(): Promise<NativeKeyboardLayout>;
 }
 
 export interface KeyboardLayoutClient {

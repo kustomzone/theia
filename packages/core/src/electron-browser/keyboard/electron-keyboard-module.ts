@@ -20,7 +20,7 @@ import { KeyboardLayoutService } from '../../browser/keyboard/keyboard-layout-se
 import { WebSocketConnectionProvider } from '../../browser/messaging/ws-connection-provider';
 import { ElectronKeyboardLayoutService } from './keyboard-electron';
 
-export const electronKeyboardModule = new ContainerModule((bind, unbind, isBound, rebind) => {
+export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(ElectronKeyboardLayoutService).toSelf().inSingletonScope();
     bind(KeyboardLayoutService).toService(ElectronKeyboardLayoutService);
 

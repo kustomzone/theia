@@ -18,7 +18,7 @@ import { ContainerModule } from 'inversify';
 import { KeyboardLayoutService } from './keyboard-layout-service';
 import { BrowserKeyboardLayoutService } from './keyboard-browser';
 
-export const browserKeyboardModule = new ContainerModule((bind, unbind, isBound, rebind) => {
+export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(BrowserKeyboardLayoutService).toSelf().inSingletonScope();
     bind(KeyboardLayoutService).toService(BrowserKeyboardLayoutService);
 });

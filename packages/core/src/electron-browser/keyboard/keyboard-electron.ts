@@ -26,8 +26,10 @@ export class ElectronKeyboardLayoutService extends AbstractKeyboardLayoutService
 
     @postConstruct()
     protected initialize(): void {
-        this.currentLayout = this.keyboardLayoutProvider.getNativeLayout();
         const layoutService = this;
+        this.keyboardLayoutProvider.getNativeLayout().then(newLayout => {
+            layoutService.currentLayout = newLayout;
+        });
         this.keyboardLayoutProvider.setClient({
             onNativeLayoutChanged(newLayout: NativeKeyboardLayout) {
                 layoutService.currentLayout = newLayout;

@@ -25,7 +25,7 @@ export class KeyboardLayoutProviderImpl implements KeyboardLayoutProvider {
     protected initialize(): void {
         nativeKeymap.onDidChangeKeyboardLayout(() => {
             if (this.client) {
-                this.client.onNativeLayoutChanged(this.getNativeLayout());
+                this.client.onNativeLayoutChanged(this.getNativeLayoutSync());
             }
         });
     }
@@ -39,7 +39,11 @@ export class KeyboardLayoutProviderImpl implements KeyboardLayoutProvider {
     dispose(): void {
     }
 
-    getNativeLayout(): NativeKeyboardLayout {
+    getNativeLayout(): Promise<NativeKeyboardLayout> {
+        return Promise.resolve(this.getNativeLayoutSync());
+    }
+
+    protected getNativeLayoutSync(): NativeKeyboardLayout {
         return {
             info: nativeKeymap.getCurrentKeyboardLayout(),
             mapping: nativeKeymap.getKeyMap()
