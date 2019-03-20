@@ -16,10 +16,10 @@
 
 import { injectable, postConstruct } from 'inversify';
 import { isOSX } from '../../common/os';
-import { AbstractKeyboardLayoutService, KeyboardLayout } from './keyboard-layout-service';
+import { NativeKeyboardLayout, KeyboardLayoutProvider, KeyboardLayoutClient } from '../../common/keyboard/layout-provider';
 
 @injectable()
-export class BrowserKeyboardLayoutService extends AbstractKeyboardLayoutService {
+export class BrowserKeyboardLayoutProvider implements KeyboardLayoutProvider {
 
     private macUS = require('../../../src/common/keyboard/layouts/mac-en-US.json');
     private macFrench = require('../../../src/common/keyboard/layouts/mac-fr-French.json');
@@ -28,36 +28,50 @@ export class BrowserKeyboardLayoutService extends AbstractKeyboardLayoutService 
     private winFrench = require('../../../src/common/keyboard/layouts/win-fr-French.json');
     private winGerman = require('../../../src/common/keyboard/layouts/win-de-German.json');
 
-    protected get allLayouts(): KeyboardLayout[] {
+    protected get allLayouts(): NativeKeyboardLayout[] {
         return [
             this.winUS, this.macUS, this.winFrench, this.macFrench, this.winGerman, this.macGerman
         ];
     }
 
+    private client?: KeyboardLayoutClient;
+
+    setClient(client?: KeyboardLayoutClient): void {
+        this.client = client;
+    }
+
     @postConstruct()
-    protected initialize(): void {
+    protected initialize() {
+        const keyboard = (navigator as NavigatorExtension).keyboard;
+        if (keyboard && keyboard.addEventListener) {
+            keyboard.addEventListener('layoutchange', () => {
+                keyboard.getLayoutMap().then(layoutMap => {
+                    if (this.client) {
+                        this.client.onNativeLayoutChanged(this.getFromLayoutMap(layoutMap));
+                    }
+                });
+            });
+        }
+    }
+
+    dispose(): void {
+    }
+
+    getNativeLayout(): Promise<NativeKeyboardLayout> {
         const keyboard = (navigator as NavigatorExtension).keyboard;
         if (keyboard && keyboard.getLayoutMap) {
-            const update = () => {
-                keyboard.getLayoutMap().then(layoutMap => {
-                    this.currentLayout = this.getFromLayoutMap(layoutMap);
-                });
-            };
-            update();
-            if (keyboard.addEventListener) {
-                keyboard.addEventListener('layoutchange', update);
-            }
+            return keyboard.getLayoutMap().then(layoutMap => this.getFromLayoutMap(layoutMap));
         } else if (navigator.language) {
-            this.currentLayout = this.getFromLanguage(navigator.language);
+            return Promise.resolve(this.getFromLanguage(navigator.language));
         } else {
-            this.currentLayout = isOSX ? this.macUS : this.winUS;
+            return Promise.resolve(isOSX ? this.macUS : this.winUS);
         }
     }
 
     /**
      * @param layoutMap a keyboard layout map according to https://wicg.github.io/keyboard-map/
      */
-    protected getFromLayoutMap(layoutMap: KeyboardLayoutMap): KeyboardLayout {
+    protected getFromLayoutMap(layoutMap: KeyboardLayoutMap): NativeKeyboardLayout {
         const tester = new KeyboardTester(this.allLayouts);
         for (const [code, key] of layoutMap.entries()) {
             tester.updateScores({ code, key });
@@ -73,7 +87,7 @@ export class BrowserKeyboardLayoutService extends AbstractKeyboardLayoutService 
     /**
      * @param language an IETF BCP 47 language tag
      */
-    protected getFromLanguage(language: string): KeyboardLayout {
+    protected getFromLanguage(language: string): NativeKeyboardLayout {
         if (isOSX) {
             if (language.startsWith('de')) {
                 return this.macGerman;
@@ -118,11 +132,11 @@ class KeyboardTester {
 
     private readonly scores: number[];
 
-    constructor(private readonly candidates: KeyboardLayout[]) {
+    constructor(private readonly candidates: NativeKeyboardLayout[]) {
         this.scores = this.candidates.map(() => 0);
     }
 
-    testCandidate(candidate: KeyboardLayout, input: KeyboardTestInput): number {
+    testCandidate(candidate: NativeKeyboardLayout, input: KeyboardTestInput): number {
         let property: 'value' | 'withShift' | 'withAltGr' | 'withShiftAltGr';
         if (input.shiftKey && input.altKey) {
             property = 'withShiftAltGr';

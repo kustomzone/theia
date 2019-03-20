@@ -14,35 +14,38 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { injectable } from 'inversify';
-import { IKeyboardMapping, IKeyboardLayoutInfo } from 'native-keymap';
+import { injectable, inject, postConstruct } from 'inversify';
+import { isOSX } from '../../common/os';
+import { NativeKeyboardLayout, KeyboardLayoutProvider, KeyboardLayoutClient } from '../../common/keyboard/layout-provider';
 import { Emitter, Event } from '../../common/event';
-import { KeyCode } from './keys';
+import { KeyCode, KeyModifier, Key } from './keys';
 
-export const KeyboardLayoutService = Symbol('KeyboardLayoutService');
-
-export interface KeyboardLayoutService {
-
-    readonly onKeyboardLayoutChanged: Event<KeyboardLayout>;
-
-    resolveKeyCode(code: KeyCode): KeyCode;
-
+export interface KeyboardLayout {
+    readonly character2KeyCode: KeyCode[];
 }
 
 @injectable()
-export abstract class AbstractKeyboardLayoutService implements KeyboardLayoutService {
+export class KeyboardLayoutService {
 
-    private _currentLayout: KeyboardLayout;
+    @inject(KeyboardLayoutProvider)
+    protected readonly layoutProvider: KeyboardLayoutProvider;
 
-    protected get currentLayout(): KeyboardLayout {
-        return this._currentLayout;
+    private _nativeLayout: NativeKeyboardLayout;
+    private _currentLayout: KeyboardLayout = {
+        character2KeyCode: []
+    };
+
+    protected get nativeLayout(): NativeKeyboardLayout {
+        return this._nativeLayout;
     }
 
-    protected set currentLayout(newLayout: KeyboardLayout) {
-        const previousLayout = this._currentLayout;
-        this._currentLayout = newLayout;
+    protected set nativeLayout(newLayout: NativeKeyboardLayout) {
+        const previousLayout = this._nativeLayout;
+        this._nativeLayout = newLayout;
         if (newLayout !== previousLayout) {
-            this.keyboardLayoutChanged.fire(newLayout);
+            const transformed = this.transformNativeLayout(newLayout);
+            this._currentLayout = transformed;
+            this.keyboardLayoutChanged.fire(transformed);
         }
     }
 
@@ -52,13 +55,221 @@ export abstract class AbstractKeyboardLayoutService implements KeyboardLayoutSer
         return this.keyboardLayoutChanged.event;
     }
 
-    resolveKeyCode(code: KeyCode): KeyCode {
-        return code;
+    @postConstruct()
+    protected initialize(): void {
+        const layoutService = this;
+        this.layoutProvider.getNativeLayout().then(newLayout => {
+            layoutService.nativeLayout = newLayout;
+        });
+        this.layoutProvider.setClient({
+            onNativeLayoutChanged(newLayout: NativeKeyboardLayout): void {
+                layoutService.nativeLayout = newLayout;
+            }
+        });
+    }
+
+    resolveKeyCode(inCode: KeyCode): KeyCode {
+        const layout = this._currentLayout;
+        if (layout && inCode.key) {
+            const mappedCode = layout.character2KeyCode[inCode.key.keyCode];
+            if (mappedCode) {
+                return this.transformKeyCode(inCode, mappedCode);
+            }
+        }
+        return inCode;
+    }
+
+    protected transformKeyCode(inCode: KeyCode, mappedCode: KeyCode): KeyCode {
+        const keystroke = [mappedCode.key!.code];
+        const keyNeedsShift = !!VALUE_TO_KEY[mappedCode.character!].shift;
+        if (keyNeedsShift && !inCode.shift) {
+            return inCode;
+        }
+        let ctrlMod = inCode.ctrl;
+        let shiftMod = inCode.shift;
+        let altMod = inCode.alt;
+        if (mappedCode.alt && mappedCode.shift) {
+            ctrlMod = true;
+            shiftMod = true;
+            altMod = true;
+        } else if (mappedCode.alt) {
+            ctrlMod = true;
+            altMod = true;
+        }
+        // TODO
+        if (isOSX) {
+            if (inCode.meta) {
+                keystroke.push(KeyModifier.CtrlCmd);
+            }
+            if (shiftMod) {
+                keystroke.push(KeyModifier.Shift);
+            }
+            if (altMod) {
+                keystroke.push(KeyModifier.Alt);
+            }
+            if (ctrlMod) {
+                keystroke.push(KeyModifier.MacCtrl);
+            }
+        } else {
+            if (ctrlMod) {
+                keystroke.push(KeyModifier.CtrlCmd);
+            }
+            if (shiftMod) {
+                keystroke.push(KeyModifier.Shift);
+            }
+            if (altMod) {
+                keystroke.push(KeyModifier.Alt);
+            }
+        }
+        return new KeyCode(keystroke);
+    }
+
+    protected transformNativeLayout(nativeLayout: NativeKeyboardLayout): KeyboardLayout {
+        const character2KeyCode: KeyCode[] = Array(256);
+        const mapping = nativeLayout.mapping;
+        for (const code in mapping) {
+            if (mapping.hasOwnProperty(code)) {
+                const keyMapping = mapping[code];
+                if (keyMapping.value) {
+                    this.addKeyMapping(character2KeyCode, code, keyMapping.value, false, false);
+                }
+                if (keyMapping.withShift) {
+                    this.addKeyMapping(character2KeyCode, code, keyMapping.withShift, true, false);
+                }
+                if (keyMapping.withAltGr) {
+                    this.addKeyMapping(character2KeyCode, code, keyMapping.withAltGr, false, true);
+                }
+                if (keyMapping.withShiftAltGr) {
+                    this.addKeyMapping(character2KeyCode, code, keyMapping.withShiftAltGr, true, true);
+                }
+            }
+        }
+        return { character2KeyCode };
+    }
+
+    private addKeyMapping(character2KeyCode: KeyCode[], code: string, value: string, shift: boolean, alt: boolean): void {
+        const key = VALUE_TO_KEY[value];
+        if (key) {
+            const keyCode = key.key.keyCode;
+            if (character2KeyCode[keyCode] === undefined) {
+                const keystroke = [code];
+                if (shift) {
+                    keystroke.push(KeyModifier.Shift);
+                }
+                if (alt) {
+                    keystroke.push(KeyModifier.Alt);
+                }
+                character2KeyCode[keyCode] = new KeyCode(keystroke, value);
+            }
+        }
     }
 
 }
 
-export interface KeyboardLayout {
-    info: IKeyboardLayoutInfo;
-    mapping: IKeyboardMapping;
-}
+/**
+ * Mapping of character values to the corresponding keys on a standard US keyboard layout.
+ */
+const VALUE_TO_KEY: { [value: string]: { key: Key, shift?: boolean } } = {};
+
+(() => {
+    VALUE_TO_KEY['`'] = { key: Key.BACKQUOTE };
+    VALUE_TO_KEY['~'] = { key: Key.BACKQUOTE, shift: true };
+    VALUE_TO_KEY['1'] = { key: Key.DIGIT1 };
+    VALUE_TO_KEY['!'] = { key: Key.DIGIT1, shift: true };
+    VALUE_TO_KEY['2'] = { key: Key.DIGIT2 };
+    VALUE_TO_KEY['@'] = { key: Key.DIGIT2, shift: true };
+    VALUE_TO_KEY['3'] = { key: Key.DIGIT3 };
+    VALUE_TO_KEY['#'] = { key: Key.DIGIT3, shift: true };
+    VALUE_TO_KEY['4'] = { key: Key.DIGIT4 };
+    VALUE_TO_KEY['$'] = { key: Key.DIGIT4, shift: true };
+    VALUE_TO_KEY['5'] = { key: Key.DIGIT5 };
+    VALUE_TO_KEY['%'] = { key: Key.DIGIT5, shift: true };
+    VALUE_TO_KEY['6'] = { key: Key.DIGIT6 };
+    VALUE_TO_KEY['^'] = { key: Key.DIGIT6, shift: true };
+    VALUE_TO_KEY['7'] = { key: Key.DIGIT7 };
+    VALUE_TO_KEY['&'] = { key: Key.DIGIT7, shift: true };
+    VALUE_TO_KEY['8'] = { key: Key.DIGIT8 };
+    VALUE_TO_KEY['*'] = { key: Key.DIGIT8, shift: true };
+    VALUE_TO_KEY['9'] = { key: Key.DIGIT9 };
+    VALUE_TO_KEY['('] = { key: Key.DIGIT9, shift: true };
+    VALUE_TO_KEY['0'] = { key: Key.DIGIT0 };
+    VALUE_TO_KEY[')'] = { key: Key.DIGIT0, shift: true };
+    VALUE_TO_KEY['-'] = { key: Key.MINUS };
+    VALUE_TO_KEY['_'] = { key: Key.MINUS, shift: true };
+    VALUE_TO_KEY['='] = { key: Key.EQUAL };
+    VALUE_TO_KEY['+'] = { key: Key.EQUAL, shift: true };
+
+    VALUE_TO_KEY['a'] = { key: Key.KEY_A };
+    VALUE_TO_KEY['A'] = { key: Key.KEY_A, shift: true };
+    VALUE_TO_KEY['b'] = { key: Key.KEY_B };
+    VALUE_TO_KEY['B'] = { key: Key.KEY_B, shift: true };
+    VALUE_TO_KEY['c'] = { key: Key.KEY_C };
+    VALUE_TO_KEY['C'] = { key: Key.KEY_C, shift: true };
+    VALUE_TO_KEY['d'] = { key: Key.KEY_D };
+    VALUE_TO_KEY['D'] = { key: Key.KEY_D, shift: true };
+    VALUE_TO_KEY['e'] = { key: Key.KEY_E };
+    VALUE_TO_KEY['E'] = { key: Key.KEY_E, shift: true };
+    VALUE_TO_KEY['f'] = { key: Key.KEY_F };
+    VALUE_TO_KEY['F'] = { key: Key.KEY_F, shift: true };
+    VALUE_TO_KEY['g'] = { key: Key.KEY_G };
+    VALUE_TO_KEY['G'] = { key: Key.KEY_G, shift: true };
+    VALUE_TO_KEY['h'] = { key: Key.KEY_H };
+    VALUE_TO_KEY['H'] = { key: Key.KEY_H, shift: true };
+    VALUE_TO_KEY['i'] = { key: Key.KEY_I };
+    VALUE_TO_KEY['I'] = { key: Key.KEY_I, shift: true };
+    VALUE_TO_KEY['j'] = { key: Key.KEY_J };
+    VALUE_TO_KEY['J'] = { key: Key.KEY_J, shift: true };
+    VALUE_TO_KEY['k'] = { key: Key.KEY_K };
+    VALUE_TO_KEY['K'] = { key: Key.KEY_K, shift: true };
+    VALUE_TO_KEY['l'] = { key: Key.KEY_L };
+    VALUE_TO_KEY['L'] = { key: Key.KEY_L, shift: true };
+    VALUE_TO_KEY['m'] = { key: Key.KEY_M };
+    VALUE_TO_KEY['M'] = { key: Key.KEY_M, shift: true };
+    VALUE_TO_KEY['n'] = { key: Key.KEY_N };
+    VALUE_TO_KEY['N'] = { key: Key.KEY_N, shift: true };
+    VALUE_TO_KEY['o'] = { key: Key.KEY_O };
+    VALUE_TO_KEY['O'] = { key: Key.KEY_O, shift: true };
+    VALUE_TO_KEY['p'] = { key: Key.KEY_P };
+    VALUE_TO_KEY['P'] = { key: Key.KEY_P, shift: true };
+    VALUE_TO_KEY['q'] = { key: Key.KEY_Q };
+    VALUE_TO_KEY['Q'] = { key: Key.KEY_Q, shift: true };
+    VALUE_TO_KEY['r'] = { key: Key.KEY_R };
+    VALUE_TO_KEY['R'] = { key: Key.KEY_R, shift: true };
+    VALUE_TO_KEY['s'] = { key: Key.KEY_S };
+    VALUE_TO_KEY['S'] = { key: Key.KEY_S, shift: true };
+    VALUE_TO_KEY['t'] = { key: Key.KEY_T };
+    VALUE_TO_KEY['T'] = { key: Key.KEY_T, shift: true };
+    VALUE_TO_KEY['u'] = { key: Key.KEY_U };
+    VALUE_TO_KEY['U'] = { key: Key.KEY_U, shift: true };
+    VALUE_TO_KEY['v'] = { key: Key.KEY_V };
+    VALUE_TO_KEY['V'] = { key: Key.KEY_V, shift: true };
+    VALUE_TO_KEY['w'] = { key: Key.KEY_W };
+    VALUE_TO_KEY['W'] = { key: Key.KEY_W, shift: true };
+    VALUE_TO_KEY['x'] = { key: Key.KEY_X };
+    VALUE_TO_KEY['X'] = { key: Key.KEY_X, shift: true };
+    VALUE_TO_KEY['y'] = { key: Key.KEY_Y };
+    VALUE_TO_KEY['Y'] = { key: Key.KEY_Y, shift: true };
+    VALUE_TO_KEY['z'] = { key: Key.KEY_Z };
+    VALUE_TO_KEY['Z'] = { key: Key.KEY_Z, shift: true };
+
+    VALUE_TO_KEY['['] = { key: Key.BRACKET_LEFT };
+    VALUE_TO_KEY['{'] = { key: Key.BRACKET_LEFT, shift: true };
+    VALUE_TO_KEY[']'] = { key: Key.BRACKET_RIGHT };
+    VALUE_TO_KEY['}'] = { key: Key.BRACKET_RIGHT, shift: true };
+    VALUE_TO_KEY[';'] = { key: Key.SEMICOLON };
+    VALUE_TO_KEY[':'] = { key: Key.SEMICOLON, shift: true };
+    VALUE_TO_KEY["'"] = { key: Key.QUOTE };
+    VALUE_TO_KEY['"'] = { key: Key.QUOTE, shift: true };
+    VALUE_TO_KEY[','] = { key: Key.COMMA };
+    VALUE_TO_KEY['<'] = { key: Key.COMMA, shift: true };
+    VALUE_TO_KEY['.'] = { key: Key.PERIOD };
+    VALUE_TO_KEY['>'] = { key: Key.PERIOD, shift: true };
+    VALUE_TO_KEY['/'] = { key: Key.SLASH };
+    VALUE_TO_KEY['?'] = { key: Key.SLASH, shift: true };
+    VALUE_TO_KEY['\\'] = { key: Key.BACKSLASH };
+    VALUE_TO_KEY['|'] = { key: Key.BACKSLASH, shift: true };
+
+    VALUE_TO_KEY['\t'] = { key: Key.TAB };
+    VALUE_TO_KEY['\n'] = { key: Key.ENTER };
+    VALUE_TO_KEY[' '] = { key: Key.SPACE };
+})();

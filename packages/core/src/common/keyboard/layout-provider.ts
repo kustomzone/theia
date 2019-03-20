@@ -19,7 +19,7 @@ import { JsonRpcServer } from '../messaging/proxy-factory';
 
 export const keyboardPath = '/services/keyboard';
 
-export const KeyboardLayoutProvider = Symbol('IKeyboardLayoutProvider');
+export const KeyboardLayoutProvider = Symbol('KeyboardLayoutProvider');
 
 export interface KeyboardLayoutProvider extends JsonRpcServer<KeyboardLayoutClient> {
     getNativeLayout(): Promise<NativeKeyboardLayout>;

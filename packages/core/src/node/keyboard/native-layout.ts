@@ -16,10 +16,16 @@
 
 import * as nativeKeymap from 'native-keymap';
 import { injectable, postConstruct } from 'inversify';
-import { KeyboardLayoutProvider, NativeKeyboardLayout, KeyboardLayoutClient } from '../../common/keyboard/native-layout';
+import { KeyboardLayoutProvider, NativeKeyboardLayout, KeyboardLayoutClient } from '../../common/keyboard/layout-provider';
 
 @injectable()
-export class KeyboardLayoutProviderImpl implements KeyboardLayoutProvider {
+export class NativeKeyboardLayoutProvider implements KeyboardLayoutProvider {
+
+    protected client?: KeyboardLayoutClient;
+
+    setClient(client?: KeyboardLayoutClient): void {
+        this.client = client;
+    }
 
     @postConstruct()
     protected initialize(): void {
@@ -28,12 +34,6 @@ export class KeyboardLayoutProviderImpl implements KeyboardLayoutProvider {
                 this.client.onNativeLayoutChanged(this.getNativeLayoutSync());
             }
         });
-    }
-
-    protected client?: KeyboardLayoutClient;
-
-    setClient(client?: KeyboardLayoutClient): void {
-        this.client = client;
     }
 
     dispose(): void {

@@ -167,6 +167,7 @@ export namespace KeySequence {
  */
 export class KeyCode {
 
+    public readonly keystroke: string;
     public readonly key: Key | undefined = undefined;
     public readonly ctrl: boolean;
     public readonly shift: boolean;
@@ -174,10 +175,11 @@ export class KeyCode {
     public readonly meta: boolean;
     private static keybindings: { [key: string]: KeyCode } = {};
 
-    public constructor(public readonly keystroke: string, public readonly character?: string) {
-        const parts = keystroke.split('+');
+    public constructor(keystroke: string | string[], public readonly character?: string) {
+        this.keystroke = typeof keystroke === 'string' ? keystroke : keystroke.join('+');
+        const parts = typeof keystroke === 'string' ? keystroke.split('+') : keystroke;
 
-        if (parts.every(KeyCode.isModifierString) === false) {
+        if (!KeyCode.isModifierString(parts[0])) {
             this.key = Key.getKey(parts[0]);
         }
 
@@ -196,13 +198,10 @@ export class KeyCode {
 
     /* Return true of string is a modifier M1 to M4 */
     public static isModifierString(key: string) {
-        if (key === KeyModifier.CtrlCmd
+        return key === KeyModifier.CtrlCmd
             || key === KeyModifier.Shift
             || key === KeyModifier.Alt
-            || key === KeyModifier.MacCtrl) {
-            return true;
-        }
-        return false;
+            || key === KeyModifier.MacCtrl;
     }
 
     /**
@@ -274,7 +273,7 @@ export class KeyCode {
         // We need to sort the modifier keys, but on the modifiers, so it always keeps the M1 less than M2, M2 less than M3 and so on order.
         // We intentionally ignore other cases.
         sequence.sort((left: string, right: string) => KeyModifier.isModifier(left) && KeyModifier.isModifier(right) ? left.localeCompare(right) : 0);
-        KeyCode.keybindings[keybinding] = new KeyCode(sequence.join('+'));
+        KeyCode.keybindings[keybinding] = new KeyCode(sequence);
         return KeyCode.keybindings[keybinding];
     }
 
@@ -307,12 +306,11 @@ export class KeyCode {
                 sequence.push(`${KeyModifier.MacCtrl}`);
             }
 
-            return new KeyCode(sequence.join('+'), KeyCode.toCharacter(event));
+            return new KeyCode(sequence, KeyCode.toCharacter(event));
         } else {
             const key = event.first ? [event.first.code] : [];
             return new KeyCode(key
-                .concat((event.modifiers || []).sort().map(modifier => `${modifier}`))
-                .join('+'));
+                .concat((event.modifiers || []).sort().map(modifier => `${modifier}`)));
         }
     }
 

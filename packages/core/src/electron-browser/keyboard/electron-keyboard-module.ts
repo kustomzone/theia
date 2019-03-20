@@ -15,15 +15,10 @@
  ********************************************************************************/
 
 import { ContainerModule } from 'inversify';
-import { KeyboardLayoutProvider, keyboardPath } from '../../common/keyboard/native-layout';
-import { KeyboardLayoutService } from '../../browser/keyboard/keyboard-layout-service';
+import { KeyboardLayoutProvider, keyboardPath } from '../../common/keyboard/layout-provider';
 import { WebSocketConnectionProvider } from '../../browser/messaging/ws-connection-provider';
-import { ElectronKeyboardLayoutService } from './keyboard-electron';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
-    bind(ElectronKeyboardLayoutService).toSelf().inSingletonScope();
-    bind(KeyboardLayoutService).toService(ElectronKeyboardLayoutService);
-
     bind(KeyboardLayoutProvider).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy<KeyboardLayoutProvider>(ctx.container, keyboardPath)
     ).inSingletonScope();
