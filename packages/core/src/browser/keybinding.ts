@@ -15,8 +15,9 @@
  ********************************************************************************/
 
 import { injectable, inject, named } from 'inversify';
+import { isOSX } from '../common/os';
 import { CommandRegistry } from '../common/command';
-import { KeyCode, KeySequence } from './keyboard/keys';
+import { KeyCode, KeySequence, Key } from './keyboard/keys';
 import { KeyboardLayoutService } from './keyboard/keyboard-layout-service';
 import { ContributionProvider } from '../common/contribution-provider';
 import { ILogger } from '../common/logger';
@@ -141,7 +142,8 @@ export class KeybindingRegistry {
     @inject(ContextKeyService)
     protected readonly whenContextService: ContextKeyService;
 
-    onStart(): void {
+    async onStart(): Promise<void> {
+        await this.keyboardLayoutService.initialize();
         this.keyboardLayoutService.onKeyboardLayoutChanged(newLayout => {
             this.clearResolvedKeybindings();
         });
@@ -221,6 +223,7 @@ export class KeybindingRegistry {
 
     protected doRegisterKeybinding(binding: Keybinding, scope: KeybindingScope = KeybindingScope.DEFAULT) {
         try {
+            this.resolveKeybinding(binding);
             if (this.containsKeybinding(this.keymaps[scope], binding)) {
                 throw new Error(`"${binding.keybinding}" is in collision with something else [scope:${scope}]`);
             }
@@ -287,9 +290,52 @@ export class KeybindingRegistry {
     /**
      * Return a user visible representation of a keybinding.
      */
-    acceleratorFor(keybinding: Keybinding, separator: string = ' ') {
+    acceleratorFor(keybinding: Keybinding, separator: string = ' '): string[] {
         const bindingKeySequence = this.resolveKeybinding(keybinding);
-        return KeySequence.acceleratorFor(bindingKeySequence, separator);
+        return this.acceleratorForSequence(bindingKeySequence, separator);
+    }
+
+    /**
+     * Return an array of strings representing the keys in this keysequence.
+     * For example ['ctrlcmd p', 'ctrlcmd k'].  The character used between
+     * keys can be overriden using `separator`.
+     */
+    acceleratorForSequence(keySequence: KeySequence, separator: string = ' '): string[] {
+        const result: string[] = [];
+        for (const keyCode of keySequence) {
+            const keyCodeResult = [];
+            if (keyCode.meta && isOSX) {
+                keyCodeResult.push('Cmd');
+            }
+            if (keyCode.ctrl) {
+                keyCodeResult.push('Ctrl');
+            }
+            if (keyCode.alt) {
+                keyCodeResult.push('Alt');
+            }
+            if (keyCode.shift) {
+                keyCodeResult.push('Shift');
+            }
+            if (keyCode.key === Key.ARROW_LEFT) {
+                keyCodeResult.push('←');
+            } else if (keyCode.key === Key.ARROW_RIGHT) {
+                keyCodeResult.push('→');
+            } else if (keyCode.key === Key.ARROW_UP) {
+                keyCodeResult.push('↑');
+            } else if (keyCode.key === Key.ARROW_DOWN) {
+                keyCodeResult.push('↓');
+            } else if (keyCode.key) {
+                const keyString = this.keyboardLayoutService.getKeyboardCharacter(keyCode.key);
+                // We want to capitalize the first letter
+                if (keyString.length === 1) {
+                    keyCodeResult.push(keyString.toUpperCase());
+                } else {
+                    keyCodeResult.push(keyString.charAt(0).toUpperCase() + keyString.slice(1));
+                }
+            }
+            result.push(keyCodeResult.join(separator));
+        }
+        return result;
     }
 
     /**
@@ -540,7 +586,7 @@ export class KeybindingRegistry {
             event.stopPropagation();
 
             this.statusBar.setElement('keybinding-status', {
-                text: `(${KeySequence.acceleratorFor(this.keySequence, '+')}) was pressed, waiting for more keys`,
+                text: `(${this.acceleratorForSequence(this.keySequence, '+')}) was pressed, waiting for more keys`,
                 alignment: StatusBarAlignment.LEFT,
                 priority: 2
             });

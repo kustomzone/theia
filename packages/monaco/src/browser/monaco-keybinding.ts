@@ -80,7 +80,7 @@ export class MonacoKeybindingContribution implements KeybindingContribution {
     protected keyCode(keybinding: monaco.keybindings.SimpleKeybinding): KeyCode {
         const keyCode = keybinding.keyCode;
         const sequence: Keystroke = {
-            first: Key.getKey(monaco2BrowserKeyCode(keyCode & 255)),
+            first: Key.getKey(monaco2BrowserKeyCode(keyCode & 0xff)),
             modifiers: []
         };
         if (keybinding.ctrlKey) {

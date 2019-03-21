@@ -14,10 +14,10 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { injectable, inject, postConstruct } from 'inversify';
+import { injectable, inject } from 'inversify';
 import { isOSX } from '../../common/os';
-import { NativeKeyboardLayout, KeyboardLayoutProvider, KeyboardLayoutClient } from '../../common/keyboard/layout-provider';
-import { Emitter, Event } from '../../common/event';
+import { NativeKeyboardLayout, KeyboardLayoutProvider } from '../../common/keyboard/layout-provider';
+import { Emitter } from '../../common/event';
 import { KeyCode, KeyModifier, Key } from './keys';
 
 export interface KeyboardLayout {
@@ -30,14 +30,8 @@ export class KeyboardLayoutService {
     @inject(KeyboardLayoutProvider)
     protected readonly layoutProvider: KeyboardLayoutProvider;
 
-    private _nativeLayout: NativeKeyboardLayout;
-    private _currentLayout: KeyboardLayout = {
-        character2KeyCode: []
-    };
-
-    protected get nativeLayout(): NativeKeyboardLayout {
-        return this._nativeLayout;
-    }
+    private _nativeLayout?: NativeKeyboardLayout;
+    private _currentLayout?: KeyboardLayout;
 
     protected set nativeLayout(newLayout: NativeKeyboardLayout) {
         const previousLayout = this._nativeLayout;
@@ -55,48 +49,58 @@ export class KeyboardLayoutService {
         return this.keyboardLayoutChanged.event;
     }
 
-    @postConstruct()
-    protected initialize(): void {
+    async initialize(): Promise<void> {
         const layoutService = this;
-        this.layoutProvider.getNativeLayout().then(newLayout => {
-            layoutService.nativeLayout = newLayout;
-        });
         this.layoutProvider.setClient({
             onNativeLayoutChanged(newLayout: NativeKeyboardLayout): void {
                 layoutService.nativeLayout = newLayout;
             }
         });
+        const newLayout = await this.layoutProvider.getNativeLayout();
+        this.nativeLayout = newLayout;
     }
 
     resolveKeyCode(inCode: KeyCode): KeyCode {
         const layout = this._currentLayout;
         if (layout && inCode.key) {
-            const mappedCode = layout.character2KeyCode[inCode.key.keyCode];
-            if (mappedCode) {
-                return this.transformKeyCode(inCode, mappedCode);
+            for (let shift = 0; shift <= 1; shift++) {
+                const index = this.getCharacterIndex(inCode.key, !!shift);
+                const mappedCode = layout.character2KeyCode[index];
+                if (mappedCode) {
+                    const transformed = this.transformKeyCode(inCode, mappedCode, !!shift);
+                    if (transformed) {
+                        return transformed;
+                    }
+                }
             }
         }
         return inCode;
     }
 
-    protected transformKeyCode(inCode: KeyCode, mappedCode: KeyCode): KeyCode {
+    getKeyboardCharacter(key: Key): string {
+        const layout = this._nativeLayout;
+        if (layout) {
+            const keyMapping = layout.mapping[key.code];
+            if (keyMapping && keyMapping.value) {
+                return keyMapping.value;
+            }
+        }
+        const easyKey = Key.getEasyKey(key);
+        return easyKey.easyString;
+    }
+
+    protected transformKeyCode(inCode: KeyCode, mappedCode: KeyCode, keyNeedsShift: boolean): KeyCode | undefined {
+        if (!inCode.shift && keyNeedsShift) {
+            return undefined;
+        }
+        if (mappedCode.alt && (inCode.alt || inCode.ctrl || inCode.shift && !keyNeedsShift)) {
+            return undefined;
+        }
+        const ctrlMod = inCode.ctrl || mappedCode.alt;
+        const shiftMod = inCode.shift && !keyNeedsShift || mappedCode.shift;
+        const altMod = inCode.alt || mappedCode.alt;
+
         const keystroke = [mappedCode.key!.code];
-        const keyNeedsShift = !!VALUE_TO_KEY[mappedCode.character!].shift;
-        if (keyNeedsShift && !inCode.shift) {
-            return inCode;
-        }
-        let ctrlMod = inCode.ctrl;
-        let shiftMod = inCode.shift;
-        let altMod = inCode.alt;
-        if (mappedCode.alt && mappedCode.shift) {
-            ctrlMod = true;
-            shiftMod = true;
-            altMod = true;
-        } else if (mappedCode.alt) {
-            ctrlMod = true;
-            altMod = true;
-        }
-        // TODO
         if (isOSX) {
             if (inCode.meta) {
                 keystroke.push(KeyModifier.CtrlCmd);
@@ -125,7 +129,7 @@ export class KeyboardLayoutService {
     }
 
     protected transformNativeLayout(nativeLayout: NativeKeyboardLayout): KeyboardLayout {
-        const character2KeyCode: KeyCode[] = Array(256);
+        const character2KeyCode: KeyCode[] = Array(512);
         const mapping = nativeLayout.mapping;
         for (const code in mapping) {
             if (mapping.hasOwnProperty(code)) {
@@ -150,8 +154,8 @@ export class KeyboardLayoutService {
     private addKeyMapping(character2KeyCode: KeyCode[], code: string, value: string, shift: boolean, alt: boolean): void {
         const key = VALUE_TO_KEY[value];
         if (key) {
-            const keyCode = key.key.keyCode;
-            if (character2KeyCode[keyCode] === undefined) {
+            const index = this.getCharacterIndex(key.key, key.shift);
+            if (character2KeyCode[index] === undefined) {
                 const keystroke = [code];
                 if (shift) {
                     keystroke.push(KeyModifier.Shift);
@@ -159,8 +163,16 @@ export class KeyboardLayoutService {
                 if (alt) {
                     keystroke.push(KeyModifier.Alt);
                 }
-                character2KeyCode[keyCode] = new KeyCode(keystroke, value);
+                character2KeyCode[index] = new KeyCode(keystroke, value);
             }
+        }
+    }
+
+    private getCharacterIndex(key: Key, shift?: boolean): number {
+        if (shift) {
+            return 256 + key.keyCode;
+        } else {
+            return key.keyCode;
         }
     }
 

@@ -19,10 +19,11 @@ let disableJSDOM = enableJSDOM();
 
 import { Container, injectable, ContainerModule } from 'inversify';
 import { bindContributionProvider } from '../common/contribution-provider';
+import { KeyboardLayoutProvider, NativeKeyboardLayout, KeyboardLayoutClient } from '../common/keyboard/layout-provider';
 import { ILogger } from '../common/logger';
 import { KeybindingRegistry, KeybindingContext, Keybinding, KeybindingContribution, KeybindingScope } from './keybinding';
 import { KeyCode, Key, KeyModifier, KeySequence, EasyKey } from './keyboard/keys';
-import { KeyboardLayoutService, AbstractKeyboardLayoutService } from './keyboard/keyboard-layout-service';
+import { KeyboardLayoutService } from './keyboard/keyboard-layout-service';
 import { CommandRegistry, CommandService, CommandContribution, Command } from '../common/command';
 import { LabelParser } from './label-parser';
 import { MockLogger } from '../common/test/mock-logger';
@@ -50,8 +51,9 @@ before(async () => {
         /* Mock logger binding*/
         bind(ILogger).to(MockLogger);
 
-        bind(MockKeyboardLayoutService).toSelf().inSingletonScope();
-        bind(KeyboardLayoutService).toService(MockKeyboardLayoutService);
+        bind(KeyboardLayoutService).toSelf().inSingletonScope();
+        bind(MockKeyboardLayoutProvider).toSelf().inSingletonScope();
+        bind(KeyboardLayoutProvider).toService(MockKeyboardLayoutProvider);
 
         bindContributionProvider(bind, KeybindingContext);
 
@@ -536,7 +538,21 @@ const TEST_COMMAND_SHADOW: Command = {
 };
 
 @injectable()
-export class MockKeyboardLayoutService extends AbstractKeyboardLayoutService {
+export class MockKeyboardLayoutProvider implements KeyboardLayoutProvider {
+
+    getNativeLayout(): Promise<NativeKeyboardLayout> {
+        return Promise.resolve({
+            info: { id: 'mock', lang: 'en' },
+            mapping: {}
+        });
+    }
+
+    dispose(): void {
+    }
+
+    setClient(client: KeyboardLayoutClient): void {
+    }
+
 }
 
 @injectable()

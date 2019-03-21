@@ -18,7 +18,7 @@ import { injectable, inject, postConstruct } from 'inversify';
 import { MessageType } from '@theia/core/lib/common/message-service-protocol';
 import {
     QuickOpenService, QuickOpenModel, QuickOpenOptions,
-    QuickOpenItem, QuickOpenGroupItem, QuickOpenMode, KeySequence
+    QuickOpenItem, QuickOpenGroupItem, QuickOpenMode, KeySequence, ResolvedKeybinding
 } from '@theia/core/lib/browser';
 import { KEY_CODE_MAP } from './monaco-keycode-map';
 import { ContextKey } from '@theia/core/lib/browser/context-key-service';
@@ -320,19 +320,23 @@ export class QuickOpenEntry extends monaco.quickOpen.QuickOpenEntry {
     }
 
     getKeybinding(): monaco.keybindings.ResolvedKeybinding | undefined {
-        const keybinding = this.item.getKeybinding();
+        const keybinding = this.item.getKeybinding() as ResolvedKeybinding | undefined;
         if (!keybinding) {
             return undefined;
         }
 
         let keySequence: KeySequence;
         try {
-            keySequence = KeySequence.parse(keybinding.keybinding);
+            if (keybinding.resolved) {
+                keySequence = keybinding.resolved;
+            } else {
+                keySequence = KeySequence.parse(keybinding.keybinding);
+            }
         } catch (error) {
             return undefined;
         }
 
-        if (keySequence.length < 2) {
+        if (keySequence.length === 1) {
             const keyCode = keySequence[0];
             if (keyCode.key !== undefined) { // This should not happen.
                 const simple = new monaco.keybindings.SimpleKeybinding(
