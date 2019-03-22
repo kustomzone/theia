@@ -23,7 +23,7 @@ import { HostedPluginWatcher } from './hosted-plugin-watcher';
 import { MAIN_RPC_CONTEXT, ConfigStorage, PluginManagerExt } from '../../api/plugin-api';
 import { setUpPluginApi } from '../../main/browser/main-context';
 import { RPCProtocol, RPCProtocolImpl } from '../../api/rpc-protocol';
-import { ILogger, ContributionProvider } from '@theia/core';
+import { ILogger, ContributionProvider, MaybePromise } from '@theia/core';
 import { PreferenceServiceImpl, PreferenceProviderProvider } from '@theia/core/lib/browser';
 import { WorkspaceService } from '@theia/workspace/lib/browser';
 import { PluginContributionHandler } from '../../main/browser/plugin-contribution-handler';
@@ -64,6 +64,7 @@ export class HostedPluginSupport {
     private theiaReadyPromise: Promise<any>;
     private frontendExtManagerProxy: PluginManagerExt;
     private backendExtManagerProxy: PluginManagerExt;
+    private rpc: RPCProtocol | undefined;
 
     constructor(
         @inject(PreferenceServiceImpl) private readonly preferenceServiceImpl: PreferenceServiceImpl,
@@ -80,12 +81,16 @@ export class HostedPluginSupport {
 
     checkAndLoadPlugin(container: interfaces.Container): void {
         this.container = container;
-        this.initPlugins();
+        this.initPlugins(this.getDeployedPlugins());
     }
 
-    public initPlugins(): void {
+    getDeployedPlugins(): Promise<PluginMetadata[]> {
+        return this.server.getDeployedMetadata();
+    }
+
+    initPlugins(deployedPlugins: MaybePromise<PluginMetadata[]>): void {
         Promise.all([
-            this.server.getDeployedMetadata(),
+            deployedPlugins,
             this.server.getHostedPlugin(),
             this.pluginPathsService.provideHostLogPath(),
             this.storagePathService.provideHostStoragePath(),
@@ -151,9 +156,13 @@ export class HostedPluginSupport {
                     if (plugins.length >= 1) {
                         pluginID = getPluginId(plugins[0].model);
                     }
-                    const rpc = this.createServerRpc(pluginID, hostKey);
-                    setUpPluginApi(rpc, container);
-                    const hostedExtManager = rpc.getProxy(MAIN_RPC_CONTEXT.HOSTED_PLUGIN_MANAGER_EXT);
+
+                    if (!this.rpc) {
+                        this.rpc = this.createServerRpc(pluginID, hostKey);
+                        setUpPluginApi(this.rpc, container);
+                    }
+
+                    const hostedExtManager = this.rpc.getProxy(MAIN_RPC_CONTEXT.HOSTED_PLUGIN_MANAGER_EXT);
                     hostedExtManager.$init({
                         plugins: plugins,
                         preferences: getPreferences(this.preferenceProviderProvider),
@@ -162,7 +171,7 @@ export class HostedPluginSupport {
                         env: { queryParams: getQueryParameters() },
                         extApi: initData.pluginAPIs
                     }, confStorage);
-                    this.mainPluginApiProviders.getContributions().forEach(p => p.initialize(rpc, container));
+                    this.mainPluginApiProviders.getContributions().forEach(p => p.initialize(this.rpc!, container));
                     this.backendExtManagerProxy = hostedExtManager;
                 });
             }

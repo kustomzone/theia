@@ -16,7 +16,7 @@
 
 import { injectable, inject } from 'inversify';
 import { QuickOpenService, QuickOpenItem, QuickOpenModel, QuickOpenMode } from '@theia/core/lib/browser';
-import { PluginServer } from '../../common';
+import { PluginServer, PluginMetadata } from '../../common';
 import { Command } from '@theia/core';
 import { HostedPluginSupport } from '../../hosted/browser/hosted-plugin';
 import { PluginWidget } from './plugin-ext-widget';
@@ -104,11 +104,18 @@ export class DeployQuickOpenItem extends QuickOpenItem {
         if (mode !== QuickOpenMode.OPEN) {
             return false;
         }
-        const promise = this.pluginServer.deploy(this.name);
-        promise.then(() => {
-            this.hostedPluginSupport.initPlugins();
+
+        const deployedPlugins = this.hostedPluginSupport.getDeployedPlugins();
+        deployedPlugins.then(async metadata => {
+            const ids = metadata.map(value => value.model.id);
+
+            await this.pluginServer.deploy(this.name);
+            const delta = (await this.hostedPluginSupport.getDeployedPlugins()).filter((value: PluginMetadata) => ids.indexOf(value.model.id) < 0);
+
+            this.hostedPluginSupport.initPlugins(delta);
             this.pluginWidget.refreshPlugins();
         });
+
         return true;
     }
 
