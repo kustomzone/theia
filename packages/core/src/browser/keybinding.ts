@@ -296,46 +296,58 @@ export class KeybindingRegistry {
     }
 
     /**
-     * Return an array of strings representing the keys in this keysequence.
-     * For example ['ctrlcmd p', 'ctrlcmd k'].  The character used between
-     * keys can be overriden using `separator`.
+     * Return a user visible representation of a key sequence.
      */
     acceleratorForSequence(keySequence: KeySequence, separator: string = ' '): string[] {
-        const result: string[] = [];
-        for (const keyCode of keySequence) {
-            const keyCodeResult = [];
-            if (keyCode.meta && isOSX) {
-                keyCodeResult.push('Cmd');
-            }
-            if (keyCode.ctrl) {
-                keyCodeResult.push('Ctrl');
-            }
-            if (keyCode.alt) {
-                keyCodeResult.push('Alt');
-            }
-            if (keyCode.shift) {
-                keyCodeResult.push('Shift');
-            }
-            if (keyCode.key === Key.ARROW_LEFT) {
-                keyCodeResult.push('←');
-            } else if (keyCode.key === Key.ARROW_RIGHT) {
-                keyCodeResult.push('→');
-            } else if (keyCode.key === Key.ARROW_UP) {
-                keyCodeResult.push('↑');
-            } else if (keyCode.key === Key.ARROW_DOWN) {
-                keyCodeResult.push('↓');
-            } else if (keyCode.key) {
-                const keyString = this.keyboardLayoutService.getKeyboardCharacter(keyCode.key);
-                // We want to capitalize the first letter
-                if (keyString.length === 1) {
-                    keyCodeResult.push(keyString.toUpperCase());
-                } else {
-                    keyCodeResult.push(keyString.charAt(0).toUpperCase() + keyString.slice(1));
-                }
-            }
-            result.push(keyCodeResult.join(separator));
+        return keySequence.map(keyCode => this.acceleratorForKeyCode(keyCode, separator));
+    }
+
+    /**
+     * Return a user visible representation of a key code (a key with modifiers).
+     */
+    acceleratorForKeyCode(keyCode: KeyCode, separator: string = ' '): string {
+        const keyCodeResult = [];
+        if (keyCode.meta && isOSX) {
+            keyCodeResult.push('Cmd');
         }
-        return result;
+        if (keyCode.ctrl) {
+            keyCodeResult.push('Ctrl');
+        }
+        if (keyCode.alt) {
+            keyCodeResult.push('Alt');
+        }
+        if (keyCode.shift) {
+            keyCodeResult.push('Shift');
+        }
+        if (keyCode.key) {
+            keyCodeResult.push(this.acceleratorForKey(keyCode.key));
+        }
+        return keyCodeResult.join(separator);
+    }
+
+    /**
+     * Return a user visible representation of a single key.
+     */
+    acceleratorForKey(key: Key): string {
+        if (key === Key.ARROW_LEFT) {
+            return '←';
+        }
+        if (key === Key.ARROW_RIGHT) {
+            return '→';
+        }
+        if (key === Key.ARROW_UP) {
+            return '↑';
+        }
+        if (key === Key.ARROW_DOWN) {
+            return '↓';
+        }
+        const keyString = this.keyboardLayoutService.getKeyboardCharacter(key);
+        // We want to capitalize the first letter
+        if (keyString.length === 1) {
+            return keyString.toUpperCase();
+        } else {
+            return keyString.charAt(0).toUpperCase() + keyString.slice(1);
+        }
     }
 
     /**

@@ -225,7 +225,8 @@ export class TerminalFrontendContribution implements TerminalService, CommandCon
         });
         keybindings.registerKeybinding({
             command: TerminalCommands.TERMINAL_CLEAR.id,
-            keybinding: 'ctrlcmd+k'
+            keybinding: 'ctrlcmd+k',
+            context: TerminalKeybindingContexts.terminalActive
         });
 
         /* Register passthrough keybindings for combinations recognized by
